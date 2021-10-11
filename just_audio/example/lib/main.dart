@@ -52,14 +52,6 @@ class _MyAppState extends State<MyApp> {
         artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
       ),
     ),
-    AudioSource.uri(
-      Uri.parse("asset:///audio/freq_test.mp3"),
-      tag: AudioMetadata(
-        album: "Test",
-        title: "Frequency Test",
-        artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
-      ),
-    ),
   ]);
   int _addedCount = 0;
 
