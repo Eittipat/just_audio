@@ -49,6 +49,10 @@
     {
         fftOutput[i] = outReal[rIndex++];
         fftOutput[i + 1] = outImaginary[iIndex++];
+        
+        // magic term that make it look like android (tuned by hand)
+        fftOutput[i] = fabsf(fftOutput[i]*8);
+        fftOutput[i+1] = fabsf(fftOutput[i+1]*8);
     }
 }
 

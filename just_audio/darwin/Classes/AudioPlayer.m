@@ -488,9 +488,7 @@ static void processTap(MTAudioProcessingTapRef tap, CMItemCount frameCount, MTAu
     [self->_fftHelper performFFT:samples :fftBuffer];
     UInt8 *fftMag = (UInt8*)storage->fft;
     for (UInt32 i = 0; i < captureSize; i++) {
-        // magic term that make it look like android (tuned by hand)
-        float value = fabsf(fftBuffer[i]*8);
-        fftMag[i] = (UInt8)CLAMP(value,0,255);
+        fftMag[i] = (UInt8)CLAMP(fftBuffer[i],0,255);
     }
     
     dispatch_async(dispatch_get_main_queue(), ^{
