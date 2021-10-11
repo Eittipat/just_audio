@@ -61,6 +61,7 @@ typedef struct JATapStorage {
     int _visualizerCaptureSize;
     int _visualizerSamplingRate;
     NSDictionary<NSString *, NSObject *> *_icyMetadata;
+    FFTHelper *_fftHelper;
 }
 
 - (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar playerId:(NSString*)idParam loadConfiguration:(NSDictionary *)loadConfiguration {
@@ -359,6 +360,10 @@ typedef struct JATapStorage {
     _visualizerEnableWaveform = enableWaveform;
     _visualizerEnableFft = enableFft;
  
+    NSLog(@"Initialize FFT engine");
+    _fftHelper = [[FFTHelper alloc]init];
+    [_fftHelper initialFFT:captureSize];
+    
     [self ensureTap];
 }
 
@@ -368,6 +373,9 @@ typedef struct JATapStorage {
     _visualizerCaptureRate = 0;
     _visualizerEnableWaveform = NO;
     _visualizerEnableFft = NO;
+    
+    NSLog(@"Destory FFT engine");
+    [_fftHelper destoryFFT];
     
     [self releaseTap];
 }
@@ -452,9 +460,7 @@ static void processTap(MTAudioProcessingTapRef tap, CMItemCount frameCount, MTAu
 
     UInt8 *waveform = (UInt8 *)storage->waveform;
     int captureSize = storage->captureSize;
-    int realData[captureSize];
-    int imageData[captureSize];
-    int fftBuffer[captureSize];
+    float fftBuffer[captureSize];
     
     AudioBuffer *buffer = &bufferListInOut->mBuffers[0];
     int bufferSize = buffer->mDataByteSize;
@@ -470,8 +476,6 @@ static void processTap(MTAudioProcessingTapRef tap, CMItemCount frameCount, MTAu
         if (unsignedSample > 255) unsignedSample = 255;
         else if (unsignedSample < 0) unsignedSample = 0;
         waveform[i] = (UInt8)unsignedSample;
-        realData[i] = unsignedSample;
-        imageData[i] = 0;
     }
     
     // TODO: Take captureRate into account. Maybe let the main thread
@@ -481,15 +485,12 @@ static void processTap(MTAudioProcessingTapRef tap, CMItemCount frameCount, MTAu
     // TODO: Check impact on performance and memory.
     
     // FFT
-    // TODO: Implement FFT using bit operation to speed up
-    fft(captureSize, realData,imageData);
-    // Rearrange FFT to match with android
-    rearrange(captureSize, fftBuffer, realData, imageData);
+    [self->_fftHelper performFFT:samples :fftBuffer];
     UInt8 *fftMag = (UInt8*)storage->fft;
-    float scaleFactor = sqrt(captureSize);
     for (UInt32 i = 0; i < captureSize; i++) {
-        int value = fftBuffer[i];
-        fftMag[i] = (UInt8)CLAMP(value/scaleFactor,-128,127);
+        // magic term that make it look like android (tuned by hand)
+        float value = fabsf(fftBuffer[i]*8);
+        fftMag[i] = (UInt8)CLAMP(value,0,255);
     }
     
     dispatch_async(dispatch_get_main_queue(), ^{
