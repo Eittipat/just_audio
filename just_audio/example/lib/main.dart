@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_example/frequency_visualizer.dart';
 import 'package:rxdart/rxdart.dart';
 
 void main() => runApp(MyApp());
@@ -20,23 +21,19 @@ class _MyAppState extends State<MyApp> {
     ClippingAudioSource(
       start: Duration(seconds: 60),
       end: Duration(seconds: 90),
-      child: AudioSource.uri(Uri.parse(
-          "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3")),
+      child: AudioSource.uri(Uri.parse("https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3")),
       tag: AudioMetadata(
         album: "Science Friday",
         title: "A Salute To Head-Scratching Science (30 seconds)",
-        artwork:
-            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+        artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
       ),
     ),
     AudioSource.uri(
-      Uri.parse(
-          "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3"),
+      Uri.parse("https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3"),
       tag: AudioMetadata(
         album: "Science Friday",
         title: "A Salute To Head-Scratching Science",
-        artwork:
-            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+        artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
       ),
     ),
     AudioSource.uri(
@@ -44,8 +41,7 @@ class _MyAppState extends State<MyApp> {
       tag: AudioMetadata(
         album: "Science Friday",
         title: "From Cat Rheology To Operatic Incompetence",
-        artwork:
-            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+        artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
       ),
     ),
     AudioSource.uri(
@@ -53,8 +49,15 @@ class _MyAppState extends State<MyApp> {
       tag: AudioMetadata(
         album: "Public Domain",
         title: "Nature Sounds",
-        artwork:
-            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+        artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+      ),
+    ),
+    AudioSource.uri(
+      Uri.parse("asset:///audio/freq_test.mp3"),
+      tag: AudioMetadata(
+        album: "Test",
+        title: "Frequency Test",
+        artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
       ),
     ),
   ]);
@@ -66,11 +69,8 @@ class _MyAppState extends State<MyApp> {
     _player = AudioPlayer();
     if (!kIsWeb) {
       _player.playerStateStream.listen((state) {
-        if (state.playing &&
-            state.processingState != ProcessingState.idle &&
-            state.processingState != ProcessingState.completed) {
-          _player.startVisualizer(
-              enableWaveform: true, enableFft: false, captureRate: 25000);
+        if (state.playing && state.processingState != ProcessingState.idle && state.processingState != ProcessingState.completed) {
+          _player.startVisualizer(enableWaveform: true, enableFft: true, captureRate: 25000);
         } else {
           _player.stopVisualizer();
         }
@@ -122,12 +122,10 @@ class _MyAppState extends State<MyApp> {
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
-                            child:
-                                Center(child: Image.network(metadata.artwork)),
+                            child: Center(child: Image.network(metadata.artwork)),
                           ),
                         ),
-                        Text(metadata.album,
-                            style: Theme.of(context).textTheme.headline6),
+                        Text(metadata.album, style: Theme.of(context).textTheme.headline6),
                         Text(metadata.title),
                       ],
                     );
@@ -146,20 +144,27 @@ class _MyAppState extends State<MyApp> {
                     },
                   ),
                 ),
+              if (!kIsWeb)
+                Container(
+                  height: 200.0,
+                  width: double.maxFinite,
+                  child: StreamBuilder<VisualizerFftCapture>(
+                    stream: _player.visualizerFftStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.data == null) return SizedBox();
+                      return FrequencyVisualizerWidget(snapshot.data!);
+                    },
+                  ),
+                ),
               ControlButtons(_player),
               StreamBuilder<Duration?>(
                 stream: _player.durationStream,
                 builder: (context, snapshot) {
                   final duration = snapshot.data ?? Duration.zero;
                   return StreamBuilder<PositionData>(
-                    stream: Rx.combineLatest2<Duration, Duration, PositionData>(
-                        _player.positionStream,
-                        _player.bufferedPositionStream,
-                        (position, bufferedPosition) =>
-                            PositionData(position, bufferedPosition)),
+                    stream: Rx.combineLatest2<Duration, Duration, PositionData>(_player.positionStream, _player.bufferedPositionStream, (position, bufferedPosition) => PositionData(position, bufferedPosition)),
                     builder: (context, snapshot) {
-                      final positionData = snapshot.data ??
-                          PositionData(Duration.zero, Duration.zero);
+                      final positionData = snapshot.data ?? PositionData(Duration.zero, Duration.zero);
                       var position = positionData.position;
                       if (position > duration) {
                         position = duration;
@@ -201,9 +206,7 @@ class _MyAppState extends State<MyApp> {
                       return IconButton(
                         icon: icons[index],
                         onPressed: () {
-                          _player.setLoopMode(cycleModes[
-                              (cycleModes.indexOf(loopMode) + 1) %
-                                  cycleModes.length]);
+                          _player.setLoopMode(cycleModes[(cycleModes.indexOf(loopMode) + 1) % cycleModes.length]);
                         },
                       );
                     },
@@ -220,9 +223,7 @@ class _MyAppState extends State<MyApp> {
                     builder: (context, snapshot) {
                       final shuffleModeEnabled = snapshot.data ?? false;
                       return IconButton(
-                        icon: shuffleModeEnabled
-                            ? Icon(Icons.shuffle, color: Colors.orange)
-                            : Icon(Icons.shuffle, color: Colors.grey),
+                        icon: shuffleModeEnabled ? Icon(Icons.shuffle, color: Colors.orange) : Icon(Icons.shuffle, color: Colors.grey),
                         onPressed: () async {
                           final enable = !shuffleModeEnabled;
                           if (enable) {
@@ -263,9 +264,7 @@ class _MyAppState extends State<MyApp> {
                               _playlist.removeAt(i);
                             },
                             child: Material(
-                              color: i == state!.currentIndex
-                                  ? Colors.grey.shade300
-                                  : null,
+                              color: i == state!.currentIndex ? Colors.grey.shade300 : null,
                               child: ListTile(
                                 title: Text(sequence[i].tag.title as String),
                                 onTap: () {
@@ -290,8 +289,7 @@ class _MyAppState extends State<MyApp> {
               tag: AudioMetadata(
                 album: "Public Domain",
                 title: "Nature Sounds ${++_addedCount}",
-                artwork:
-                    "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+                artwork: "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
               ),
             ));
           },
@@ -341,10 +339,7 @@ class AudioVisualizerPainter extends CustomPainter {
     final midY = size.height / 2;
     for (var barX = 0.0; barX < size.width; barX += barWidth) {
       final sample = getSample(barX);
-      canvas.drawLine(
-          Offset(barX.toDouble(), midY),
-          Offset(barX.toDouble(), midY - sample * size.height / 2 / 128),
-          barPaint);
+      canvas.drawLine(Offset(barX.toDouble(), midY), Offset(barX.toDouble(), midY - sample * size.height / 2 / 128), barPaint);
     }
   }
 
@@ -391,8 +386,7 @@ class ControlButtons extends StatelessWidget {
             final playerState = snapshot.data;
             final processingState = playerState?.processingState;
             final playing = playerState?.playing;
-            if (processingState == ProcessingState.loading ||
-                processingState == ProcessingState.buffering) {
+            if (processingState == ProcessingState.loading || processingState == ProcessingState.buffering) {
               return Container(
                 margin: EdgeInsets.all(8.0),
                 width: 64.0,
@@ -415,8 +409,7 @@ class ControlButtons extends StatelessWidget {
               return IconButton(
                 icon: Icon(Icons.replay),
                 iconSize: 64.0,
-                onPressed: () => player.seek(Duration.zero,
-                    index: player.effectiveIndices!.first),
+                onPressed: () => player.seek(Duration.zero, index: player.effectiveIndices!.first),
               );
             }
           },
@@ -431,8 +424,7 @@ class ControlButtons extends StatelessWidget {
         StreamBuilder<double>(
           stream: player.speedStream,
           builder: (context, snapshot) => IconButton(
-            icon: Text("${snapshot.data?.toStringAsFixed(1)}x",
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            icon: Text("${snapshot.data?.toStringAsFixed(1)}x", style: TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () {
               _showSliderDialog(
                 context: context,
@@ -522,8 +514,7 @@ class _SeekBarState extends State<SeekBar> {
           child: Slider(
             min: 0.0,
             max: widget.duration.inMilliseconds.toDouble(),
-            value: min(_dragValue ?? widget.position.inMilliseconds.toDouble(),
-                widget.duration.inMilliseconds.toDouble()),
+            value: min(_dragValue ?? widget.position.inMilliseconds.toDouble(), widget.duration.inMilliseconds.toDouble()),
             onChanged: (value) {
               setState(() {
                 _dragValue = value;
@@ -543,12 +534,7 @@ class _SeekBarState extends State<SeekBar> {
         Positioned(
           right: 16.0,
           bottom: 0.0,
-          child: Text(
-              RegExp(r'((^0*[1-9]\d*:)?\d{2}:\d{2})\.\d+$')
-                      .firstMatch("$_remaining")
-                      ?.group(1) ??
-                  '$_remaining',
-              style: Theme.of(context).textTheme.caption),
+          child: Text(RegExp(r'((^0*[1-9]\d*:)?\d{2}:\d{2})\.\d+$').firstMatch("$_remaining")?.group(1) ?? '$_remaining', style: Theme.of(context).textTheme.caption),
         ),
       ],
     );
@@ -577,11 +563,7 @@ void _showSliderDialog({
           height: 100.0,
           child: Column(
             children: [
-              Text('${snapshot.data?.toStringAsFixed(1)}$valueSuffix',
-                  style: TextStyle(
-                      fontFamily: 'Fixed',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24.0)),
+              Text('${snapshot.data?.toStringAsFixed(1)}$valueSuffix', style: TextStyle(fontFamily: 'Fixed', fontWeight: FontWeight.bold, fontSize: 24.0)),
               Slider(
                 divisions: divisions,
                 min: min,
@@ -602,8 +584,7 @@ class AudioMetadata {
   final String title;
   final String artwork;
 
-  AudioMetadata(
-      {required this.album, required this.title, required this.artwork});
+  AudioMetadata({required this.album, required this.title, required this.artwork});
 }
 
 class HiddenThumbComponentShape extends SliderComponentShape {
